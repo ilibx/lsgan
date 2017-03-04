@@ -14,7 +14,7 @@ require 'optim'
 
 opt = {
    dataset = 'lsun',       -- imagenet / lsun / folder
-   batchSize = 64,--64,
+   batchSize = 1024,--64,
    loadSize = 96,
    fineSize = 64,
    nz = 100,               -- #  of dim for Z
@@ -256,6 +256,15 @@ local fGx = function(x)
    return errG, gradParametersG+opt.decay_rate*x
 end
 
+
+netD = torch.load('./checkpoints/lsgan_result_7_net_D.t7')
+netG = torch.load('./checkpoints/lsgan_result_7_net_G.t7')
+
+parametersD, gradParametersD = netD:getParameters()
+parametersG, gradParametersG = netG:getParameters()
+
+
+
 -- train
 for epoch = 1, opt.niter do
    epoch_tm:reset()
@@ -270,11 +279,15 @@ for epoch = 1, opt.niter do
 
         -- (2) Update G network: 
       optim.adam(fGx, parametersG, optimStateG)
+      optim.adam(fGx, parametersG, optimStateG)
+      optim.adam(fGx, parametersG, optimStateG)
+      optim.adam(fGx, parametersG, optimStateG)
+
         --optim.sgd(fGx, parametersG, optimStateGsgd)
 
       -- display
       counter = counter + 1
-      if counter % 10 == 0 and opt.display then -- original counter % 10
+      if counter % 100 == 0 and opt.display then -- original counter % 10
           --if opt.noise == 'uniform' then -- regenerate random noise
           --   noise_vis:uniform(-1, 1)
           --elseif opt.noise == 'normal' then
@@ -287,7 +300,7 @@ for epoch = 1, opt.niter do
       end
 
       -- logging
-      if ((i-1) / opt.batchSize) % 1 == 0 then
+      if ((i-1) / opt.batchSize) % 30 == 0 then
          print(('Epoch: [%d][%8d / %8d]\t Time: %.3f  DataTime: %.3f  '
                    .. '  Err_G: %.4f  Err_D: %.4f   costR:%.4f   costF:%.4f   meanD:%.4f   gradD:%.4f   gradG:%.4f'):format(
                  epoch, ((i-1) / opt.batchSize),
@@ -295,6 +308,19 @@ for epoch = 1, opt.niter do
                  tm:time().real, data_tm:time().real,
                  errG and errG or -1, errD and errD or -1, costR, costF, mar, torch.mean(torch.abs(accGradD)), torch.mean(torch.abs(gradParametersG))))
       end
+
+      if counter % 300 == 0  then
+           paths.mkdir('checkpoints')
+           parametersD, gradParametersD = nil, nil -- nil them to avoid spiking memory
+           parametersG, gradParametersG = nil, nil
+           torch.save('checkpoints/' .. opt.name .. '_' .. epoch .. counter .. '_net_G.t7', netG:clearState())
+           torch.save('checkpoints/' .. opt.name .. '_' .. epoch .. counter .. '_net_D.t7', netD:clearState())
+           parametersD, gradParametersD = netD:getParameters() -- reflatten the params and get them
+           parametersG, gradParametersG = netG:getParameters()
+           print(('End of epoch %d / %d \t Time Taken: %.3f'):format(
+                epoch, opt.niter, epoch_tm:time().real))
+      end
+
    end
    paths.mkdir('checkpoints')
    parametersD, gradParametersD = nil, nil -- nil them to avoid spiking memory
